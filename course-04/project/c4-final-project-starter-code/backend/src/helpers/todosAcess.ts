@@ -2,6 +2,7 @@ import * as AWS from 'aws-sdk'
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 // import { createLogger } from '../utils/logger'
 import { TodoItem } from '../models/TodoItem'
+import { UpdateTodoRequest } from '../requests/UpdateTodoRequest'
 // import { TodoUpdate } from '../models/TodoUpdate';
 
 const AWSXRay = require('aws-xray-sdk')
@@ -52,8 +53,25 @@ export async function getTodoById(todoId: string): Promise<TodoItem> {
 
   return null
 }
+export async function getTodoByUserId(
+  userId: string,
+  todoId: string
+): Promise<TodoItem[]> {
+  const result = await docClient
+    .query({
+      TableName: todosTable,
+      KeyConditionExpression: 'userId = :userId AND todoId = :todoId',
+      ExpressionAttributeValues: {
+        ':userId': userId,
+        ':todoId': todoId
+      }
+    })
+    .promise()
 
-export async function updateTodo(todo: TodoItem): Promise<TodoItem> {
+  return result.Items as TodoItem[]
+}
+
+export async function updateTodoAttachment(todo: TodoItem): Promise<TodoItem> {
   const result = await docClient
     .update({
       TableName: todosTable,
@@ -68,6 +86,42 @@ export async function updateTodo(todo: TodoItem): Promise<TodoItem> {
     })
     .promise()
   return result.Attributes as TodoItem
+}
+export async function updateTodo(updatedTodo: UpdateTodoRequest, userId: string, todoId: string): Promise<TodoItem> {
+  const result = await docClient.update({
+      TableName: todosTable,
+      Key: { 
+        todoId: todoId, 
+        userId: userId 
+      },
+      ExpressionAttributeNames: {"#todoName": "name"},
+      UpdateExpression: "set #todoName = :name, dueDate = :dueDate, done = :done",
+      ExpressionAttributeValues: {
+          ":name": updatedTodo.name,
+          ":dueDate": updatedTodo.dueDate,
+          ":done": updatedTodo.done,
+      },
+  }).promise()
+    
+  return result.Attributes as TodoItem   
+}
+export async function deleteTodo(userId: string, todoId: string) {
+  const params = {
+    TableName: todosTable,
+    Key: {
+      "userId": userId,
+      "todoId": todoId
+    }
+  }
+  await docClient
+    .delete(params, function (err, data) {
+      if (err) {
+        console.error('Unable to delete todo item.', JSON.stringify(err))
+      } else {
+        console.log('todo item deleted successfully!', JSON.stringify(data))
+      }
+    })
+    .promise()
 }
 
 function createDynamoDBClient() {

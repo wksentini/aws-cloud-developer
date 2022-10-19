@@ -3,7 +3,7 @@ import 'source-map-support/register'
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
 import * as middy from 'middy'
 import { cors, httpErrorHandler } from 'middy/middlewares'
-import { getTodoById, updateTodo } from '../../helpers/todosAcess'
+import { getTodoById, updateTodoAttachment } from '../../helpers/todosAcess'
 import { getUploadUrl } from '../../helpers/attachmentUtils'
 
 // import { createAttachmentPresignedUrl } from '../../businessLogic/todos'
@@ -17,7 +17,7 @@ export const handler = middy(
     const todo = await getTodoById(todoId)
     todo.attachmentUrl = `https://${bucketName}.s3.amazonaws.com/${todoId}`
 
-    await updateTodo(todo)
+    await updateTodoAttachment(todo)
     const signedUrl = await getUploadUrl(todoId)
     return {
       statusCode: 201,

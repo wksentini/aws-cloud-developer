@@ -4,10 +4,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
 import * as middy from 'middy'
 import { cors, httpErrorHandler } from 'middy/middlewares'
 import { getUserId } from '../utils'
-import { deleteTodo, getTodoByUserId } from '../../helpers/todosAcess'
-
-// import { deleteTodo } from '../../businessLogic/todos'
-// import { getUserId } from '../utils'
+import { deleteTodo, getTodoByUserId } from '../../businessLogic/todos'
 
 export const handler = middy(
   async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
@@ -15,7 +12,7 @@ export const handler = middy(
     const userId = getUserId(event)
     console.log('user Id:', userId)
     const todo = await getTodoByUserId(userId, todoId)
-    // TODO: Remove a TODO item by id
+    // DONE: Remove a TODO item by id
     if (todo.length === 0){
       console.log('Incorrect todo ID: ', todoId)
       return {

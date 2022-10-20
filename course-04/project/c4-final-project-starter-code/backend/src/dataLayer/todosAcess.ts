@@ -1,32 +1,35 @@
 import * as AWS from 'aws-sdk'
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
-// import { createLogger } from '../utils/logger'
+import { createLogger } from '../utils/logger'
 import { TodoItem } from '../models/TodoItem'
 import { UpdateTodoRequest } from '../requests/UpdateTodoRequest'
 // import { TodoUpdate } from '../models/TodoUpdate';
 
 const AWSXRay = require('aws-xray-sdk')
 const XAWS = AWSXRay.captureAWS(AWS)
+export class TodoAccess {
+  constructor(
+    private readonly docClient: DocumentClient = new XAWS.DynamoDB.DocumentClient(),
+    private readonly todosTable = process.env.TODOS_TABLE,
+    private readonly todosIndex = process.env.TODOS_CREATED_AT_INDEX,
+    private readonly logger = createLogger('TodosAccess')
 
-// const logger = createLogger('TodosAccess')
-const docClient: DocumentClient = createDynamoDBClient()
-const todosTable = process.env.TODOS_TABLE
-const todoIndex = process.env.TODOS_CREATED_AT_INDEX
+  ){}
 // TODO: Implement the dataLayer logic
-export async function createTodo(todo: TodoItem): Promise<TodoItem> {
-  await docClient
+async createTodo(todo: TodoItem): Promise<TodoItem> {
+  await this.docClient
     .put({
-      TableName: todosTable,
+      TableName: this.todosTable,
       Item: todo
     })
     .promise()
-
+    this.logger.info(`Create and return todo item`);
   return todo
 }
-export async function getAllTodosByUserId(userId: string): Promise<TodoItem[]> {
-  const result = await docClient
+async getAllTodosByUserId(userId: string): Promise<TodoItem[]> {
+  const result = await this.docClient
     .query({
-      TableName: todosTable,
+      TableName: this.todosTable,
       KeyConditionExpression: 'userId = :userId',
       ExpressionAttributeValues: {
         ':userId': userId
@@ -35,31 +38,31 @@ export async function getAllTodosByUserId(userId: string): Promise<TodoItem[]> {
     .promise()
   return result.Items as TodoItem[]
 }
-export async function getTodoById(todoId: string): Promise<TodoItem> {
-  const result = await docClient
+async getTodoById(todoId: string): Promise<TodoItem> {
+  const result = await this.docClient
     .query({
-      TableName: todosTable,
-      IndexName: todoIndex,
+      TableName: this.todosTable,
+      IndexName: this.todosIndex,
       KeyConditionExpression: 'todoId = :todoId',
       ExpressionAttributeValues: {
         ':todoId': todoId
       }
     })
     .promise()
-
+    this.logger.info(`Get todo itemby todo id ${todoId}`);
   if (result.Items.length !== 0) {
     return result.Items[0] as TodoItem
   }
 
   return null
 }
-export async function getTodoByUserId(
+async getTodoByUserId(
   userId: string,
   todoId: string
 ): Promise<TodoItem[]> {
-  const result = await docClient
+  const result = await this.docClient
     .query({
-      TableName: todosTable,
+      TableName: this.todosTable,
       KeyConditionExpression: 'userId = :userId AND todoId = :todoId',
       ExpressionAttributeValues: {
         ':userId': userId,
@@ -71,10 +74,10 @@ export async function getTodoByUserId(
   return result.Items as TodoItem[]
 }
 
-export async function updateTodoAttachment(todo: TodoItem): Promise<TodoItem> {
-  const result = await docClient
+async updateTodoAttachment(todo: TodoItem): Promise<TodoItem> {
+  const result = await this.docClient
     .update({
-      TableName: todosTable,
+      TableName: this.todosTable,
       Key: {
         userId: todo.userId,
         todoId: todo.todoId
@@ -87,9 +90,9 @@ export async function updateTodoAttachment(todo: TodoItem): Promise<TodoItem> {
     .promise()
   return result.Attributes as TodoItem
 }
-export async function updateTodo(updatedTodo: UpdateTodoRequest, userId: string, todoId: string): Promise<TodoItem> {
-  const result = await docClient.update({
-      TableName: todosTable,
+async updateTodo(updatedTodo: UpdateTodoRequest, userId: string, todoId: string): Promise<TodoItem> {
+  const result = await this.docClient.update({
+      TableName: this.todosTable,
       Key: { 
         todoId: todoId, 
         userId: userId 
@@ -105,15 +108,15 @@ export async function updateTodo(updatedTodo: UpdateTodoRequest, userId: string,
     
   return result.Attributes as TodoItem   
 }
-export async function deleteTodo(userId: string, todoId: string) {
+async deleteTodo(userId: string, todoId: string) {
   const params = {
-    TableName: todosTable,
+    TableName: this.todosTable,
     Key: {
       "userId": userId,
       "todoId": todoId
     }
   }
-  await docClient
+  await this.docClient
     .delete(params, function (err, data) {
       if (err) {
         console.error('Unable to delete todo item.', JSON.stringify(err))
@@ -124,14 +127,15 @@ export async function deleteTodo(userId: string, todoId: string) {
     .promise()
 }
 
-function createDynamoDBClient() {
-  if (process.env.IS_OFFLINE) {
-    console.log('Creating a local DynamoDB instance')
-    return new XAWS.DynamoDB.DocumentClient({
-      region: 'localhost',
-      endpoint: 'http://localhost:8000'
-    })
-  }
+// async createDynamoDBClient() {
+//   if (process.env.IS_OFFLINE) {
+//     console.log('Creating a local DynamoDB instance')
+//     return new XAWS.DynamoDB.DocumentClient({
+//       region: 'localhost',
+//       endpoint: 'http://localhost:8000'
+//     })
+//   }
 
-  return new XAWS.DynamoDB.DocumentClient()
+//   return new XAWS.DynamoDB.DocumentClient()
+// }
 }
